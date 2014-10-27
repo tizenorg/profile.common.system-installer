@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# Guide a user towards a image URL with questions and exploration of
+# http://download.tizen.org/.
+# If you supply a file as parameter, the output will be saved in it.
+# Exit with value 2 if SIGINT is sent.
+
+#!/bin/bash
+
+outfile=${1:-/dev/stdout}
+
+BASE_URL="http://download.tizen.org/"
+IMAGE_URL+=$BASE_URL
+DIALOG_RESULT=
+DIALOG=/usr/bin/dialog
+
+BACK_STRING="..(parent)"
+
+tmpdir=$(mktemp -d /tmp/$(basename $0).XXXXXXXX)
+tmpfile=$(mktemp /tmp/dialog.XXXXXXXX)
+trap "rm -rf $tmpdir $tmpfile" STOP INT QUIT EXIT
+pushd $tmpdir &>/dev/null
+
+function select_topdir() {
+    $DIALOG --no-items --item-help --menu "Select image type" 15 70 15  \
+	"releases" "Official Tizen release : daily, weekly, milestones" \
+	"snapshots/tizen" "Tizen snapshots of main project for all Tizen profiles" \
+	"snapshots/devel" "Tizen snapshots of devel project for all Tizen profiles" \
+	"prerelease" "Prerelease images" 2>$tmpfile
+    ret=$?
+
+   [[ $ret == 0 ]] && { DIALOG_RESULT=$(cat $tmpfile); return 0; }
+    DIALOG_RESULT=
+    return 1
+}
+
+function select_image() {
+    dir=$1
+
+    declare -a items
+
+    readarray items < <(for x in $dir/*; do
+        [[ ! -d $x ]] && continue
+        [[ -z "$(ls -d $x/* 2>/dev/null)" ]] && continue
+        basename $x
+    done | sort -r)
+
+    if [[ ${#items[@]} == 0 ]]; then
+        DIALOG_RESULT=
+        return 0
+    fi
+
+    items[${#items[@]}]="$BACK_STRING"
+
+    $DIALOG --no-items --menu "Select subdirectory ($dir)" 15 70 15 $(echo "${items[@]}") 2>$tmpfile
+    ret=$?
+
+    [[ $ret == 0 ]] && { DIALOG_RESULT=$(cat $tmpfile); return 0; }
+    DIALOG_RESULT=
+    return 1
+}
+
+function do_sync() {
+    dialog_pid=$1
+    current_pid=$$
+
+    echo -e "\nFetching images locations... Please wait...\n"
+
+    rsync -a --relative --include=*/ --include=*.raw.* --exclude=* download.tizen.org::all/$curdir | grep -v ^d 2>/dev/null | awk '{print $5}' 2>/dev/null | while read x; do
+		## exit from the url-util script if dialog process is terminated
+		if [ ! -e /proc/$dialog_pid ]; then
+			kill $current_pid
+			exit 1
+		fi
+        mkdir -p $(dirname $x)
+        touch $x
+        echo $(basename $x)
+    done
+
+    echo "DONE - killing $dialog_pid"
+
+    [[ -n "$dialog_pid" ]] && kill $dialog_pid
+}
+
+#######################################################
+
+select_topdir || exit 1
+curdir=$DIALOG_RESULT
+
+touch sync.out
+$DIALOG --title "Fetching images locations" --tailbox sync.out 24 70 &
+do_sync $! >>sync.out
+
+initial_dir=$curdir
+while [ 1 ]; do
+    select_image $curdir || exit 1
+    if [[ "$DIALOG_RESULT" == "${BACK_STRING}" ]]; then
+        curdir=$(dirname $curdir)
+    elif [[ -z "$DIALOG_RESULT" ]]; then
+        break
+    else
+        curdir="$curdir/$DIALOG_RESULT"
+    fi
+done
+
+IMAGE_URL+=$(echo $curdir/*.raw.*)
+
+popd &>/dev/null
+
+cat << EOC > $outfile
+$(echo "$IMAGE_URL")
+EOC

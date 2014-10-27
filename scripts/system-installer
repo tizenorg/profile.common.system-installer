@@ -1,0 +1,154 @@
+#!/bin/bash
+# -*- coding: utf-8 -*-
+# vim: ts=4 sw=4 et ai si
+#
+# Copyright (c) 2014 Intel, Inc.
+# License: GPLv2
+# Authors: Thibault Guittet <thibault.guittet@open.eurogiciel.org>
+#          Nicolas Zingilé <nicolas.zingile@open.eurogiciel.org>
+#          Stéphane Desneux <stephane.desneux@open.euurogiciel.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2,
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+
+# This script will flash an output device with a downloaded raw image
+# from download.tizen.org.
+# Any missing configurations will be asked to the user.
+# Being connected to the internet before launching this script is
+# better. If you aren't connected, a wifi configuration script will be fired.
+
+echo -e "2\t2\t2\t2" > /proc/sys/kernel/printk
+
+chvt 2
+
+export HOME="/root"
+
+# Used to retrieve output of the other scripts
+output_data_file="/tmp/system-installer.$$"
+
+# Configuration file of system-installer
+conf_file="/etc/system-installer.conf"
+
+# Used to signal a bmaptool failure during download/flash
+bmaptool_failure=""
+
+# util executables paths
+utilspath=/usr/lib/system-installer
+url_util=$utilspath/url-util
+wifi_util_util=$utilspath/wifi-util
+kbd_util=$utilspath/keyboard-util
+disk_util=$utilspath/disk-util
+
+. $utilspath/dialog-helper
+
+# Simply read the configuration in $conf_file, exit if not found
+function read_config {
+
+    if [ ! -e $conf_file ]; then
+        $DIALOG --msgbox "Installation failure, missing $conf_file" 24 70
+	    sigint_handler
+    else
+        . $conf_file
+    fi
+}
+
+# Download the raw image, decompress it and write it on the device
+# When the image is written, the partition size is modified
+function install_os {
+    bmaptool copy "$IMAGE_URL" "$OUTDEV" |&
+    sed -u -e '/copied/!d;s/\r/\n/g;s/.* \([0-9]\{1,3\}\)% .*/\1/g' |
+    $DIALOG --gauge "Downloading the image and copying on $OUTDEV" 10 100 0
+    if [[ ${PIPESTATUS[0]} != 0 ]]; then
+        bmaptool_failure="yes"
+    	sigint_handler
+    fi
+}
+
+# Let the user choose between available keyboard layouts, then execute loadkeys
+function select_keyboard_layout {
+	while :; do
+		$kbd_util "$output_data_file" && break
+		[ $? -eq 1 ] && sigint_handler
+	done
+	KEYBOARD_LAYOUT=$(cat "$output_data_file")
+	rm -f "$output_data_file" 2>/dev/null
+	loadkeys "$KEYBOARD_LAYOUT"
+}
+
+# Test connection to "http://download.tizen.org/",
+# if we can't connect, we configure the keyboard layout (if not yet set)
+# then we launch the wifi configuration script
+function test_connection {
+	echo "Checking for internet connection, please wait"
+    sleep 5
+	until curl --connect-timeout 10 -s "http://download.tizen.org/" > /dev/null; do
+		while :; do
+			$wifi_util && break
+			[ $? -eq 1 ] && sigint_handler
+		done
+		echo "Checking for internet connection, please wait"
+	done
+}
+
+function sigint_handler {
+	local txt=""
+	if [ "$bmaptool_failure" = "yes" ]; then
+		txt+="Bmaptool failed to flash your device."
+	else
+		txt+="The installation was interrupted.\n\n\n"
+	fi
+	txt+="Press 'Yes' to reboot the device.\nPress 'No' to restart the installation."
+	$DIALOG --yesno "$txt" 15 70 && /usr/sbin/reboot -f
+	rm -f "$output_data_file" 2>/dev/null
+	rm -rf "$mountpoint" 2>/dev/null
+	[ -d "${OUTDEV}${partition}" ] && umount -l "${OUTDEV}${partition}" 2>/dev/null
+	exec /usr/sbin/system-installer
+}
+
+trap "sigint_handler" SIGINT
+
+read_config
+
+[ -z "$KEYBOARD_LAYOUT" ] && select_keyboard_layout
+
+if [ -z "$IMAGE_URL" ]; then
+	test_connection
+	while :; do
+		$url_util "$output_data_file" && break
+		[ $? -eq 1 ] && sigint_handler
+	done
+	IMAGE_URL=$(cat "$output_data_file")
+elif ! curl --fail -I "$IMAGE_URL" > /dev/null ; then
+	echo "The image url couldn't be reached, please verify that the url is correct."
+	exit 1
+fi
+
+if [ -z "$OUTDEV" ]; then
+	while :; do
+		$disk_util "$output_data_file" && break
+		[ $? -eq 1 ] && sigint_handler
+	done
+	OUTDEV=$(cat "$output_data_file")
+elif [ ! -b "$OUTDEV" ]; then
+	$DIALOG --msgbox "The output device is not a block device." 15 70
+	sigint_handler
+fi
+
+rm -f "$output_data_file" 2>/dev/null
+
+# os install confirmation
+os_install_lost="Do you want to proceed with the installation ? All your data on the target device will be lost."
+$DIALOG --yesno "${os_install_lost}" 15 70 || sigint_handler
+
+# Download and install the image"
+install_os
+
+# Reboot the device"
+os_password="The default password is 'tizen'. Hit Enter to reboot and then remove the usb stick."
+$DIALOG --msgbox "$os_password" 15 70 && /usr/sbin/reboot -f

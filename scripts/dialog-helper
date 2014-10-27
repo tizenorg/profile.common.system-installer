@@ -1,0 +1,17 @@
+#!/bin/bash
+
+TMP_FILE="/tmp/dialog-helper.$$"
+DIALOG=/usr/bin/dialog
+
+export DIALOGRES
+
+# Used to retrieve the result of a menu selection.
+# DIALOGRES will hold the tag corresponding to the user's selection.
+dialog_helper() {
+	$DIALOG --stderr --no-cancel "$@" 2> "$TMP_FILE"
+	local rc=$?
+	DIALOGRES=$(cat "$TMP_FILE")
+	rm -f "$TMP_FILE" 2>/dev/null
+	[[ $rc != 0 ]] && exit 1
+	return $rc
+}

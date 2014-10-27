@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# List block devices that are not removable,
+# if multiple devices are found, the user will be invited to choose one.
+# If no devices are found, the program exit with error code 1
+
+outfile=${1:-/dev/stdout}
+utilspath=/usr/lib/system-installer
+
+. $utilspath/dialog-helper
+
+target_array=()
+for i in /sys/block/*/device; do
+	[ -d "$i/slaves" ] && continue
+	dev=$(echo $i | cut -d'/' -f-4)
+	outdev=$(echo $i | cut -d'/' -f4)
+	grep -q 1 "$dev/removable"
+	if [ "$?" = "1" ]; then
+		 target_array+=("/dev/$outdev")
+	fi
+done
+
+if (( "${#target_array[@]}" == "1" )); then
+	TARGET="${target_array[0]}"
+elif (( "${#target_array[@]}" > "1" )); then
+	install_dest="Installation destination device :"
+	dialog_helper --no-items --menu "${install_dest}" 10 40 3 $( for i in "${target_array[@]}"; do echo "$i"; done )
+	TARGET="$DIALOGRES" 
+else
+	$DIALOG --msgbox "No devices could be found, no installation possible" 24 70
+	exit 1
+fi
+
+cat << EOC > $outfile
+$TARGET
+EOC
+
+exit 0

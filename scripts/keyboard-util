@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Select a keyboard layout in a menu
+
+outfile=${1:-/dev/stdout}
+utilspath=/usr/lib/system-installer
+
+. $utilspath/dialog-helper
+
+trap "exit 1" SIGINT
+
+layouts='es de fr uk us'
+dialog_helper --no-items --menu "Choose your keyboard layout" 15 70 15 $(for i in $layouts ; do echo "$i"; done)
+
+cat << EOC > $outfile
+$(echo "$DIALOGRES")
+EOC
+
+exit 0

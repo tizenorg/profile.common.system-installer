@@ -1,0 +1,12 @@
+[Unit]
+Description=Installer
+After=getty@tty2.service connman.service wpa_supplicant.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/system-installer
+ExecStartPost=/usr/sbin/reboot
+StandardInput=tty
+TTYPath=/dev/tty2
+TTYReset=yes
+TTYVHangup=yes

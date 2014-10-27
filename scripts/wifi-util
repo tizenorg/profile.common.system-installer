@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Offer a dialog interface for simple wifi connection
+# Exit with value 2 if SIGINT is sent.
+
+data_out="/tmp/wifi-config.$$"
+utilspath=/usr/lib/system-installer
+wifi=$utilspath/wifi
+
+. $utilspath/dialog-helper
+
+ssid=""
+passphrase=""
+
+trap "exit 2" SIGINT
+
+while [ 1 ]; do
+	$wifi scan > $data_out
+	ap=$(grep "wifi_" "$data_out" | sed "s/^\* /\t/" | sed "s/^\*R/\t/" | sed "s/^\*A/\t/" | awk '{$(NF--)=""; print}' | sed "s/^\(.*\) $/\"\1\"/g")
+	rm -f $data_out 2> /dev/null
+
+	if [ -z "$ssid" ]; then
+		eval dialog_helper --no-items --menu "'Choose your access point'" 24 70 24 $ap
+		ssid="$DIALOGRES"
+	fi
+
+	if [ -z "$passphrase" ]; then
+		dialog_helper --inputbox "Network's passphrase (leave empty if none)" 24 70
+		passphrase="$DIALOGRES"
+	fi
+
+	$wifi connect "$ssid" "$passphrase" | dialog --progressbox "Wifi connecting..." 40 100
+	if [ ${PIPESTATUS[0]} -eq 0 ]; then
+		$DIALOG --msgbox "You are connected" 15 70
+		exit 0
+	else
+		ssid=""
+		passphrase=""
+		$DIALOG --yesno "Connection failed. Do you want to retry ? (This may take some time)" 24 70 && continue
+		exit 1
+	fi
+done

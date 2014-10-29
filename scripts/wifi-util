@@ -14,8 +14,16 @@ passphrase=""
 
 trap "exit 2" SIGINT
 
+while [[ -z $(lsmod | grep "^iwlmvm") ]]
+do
+	sleep 0.5
+	echo -n "."
+done
+
+sleep 2
+
 while [ 1 ]; do
-	$wifi scan > $data_out
+	$wifi scan > $data_out 2> /dev/null
 	ap=$(grep "wifi_" "$data_out" | sed "s/^\* /\t/" | sed "s/^\*R/\t/" | sed "s/^\*A/\t/" | awk '{$(NF--)=""; print}' | sed "s/^\(.*\) $/\"\1\"/g")
 	rm -f $data_out 2> /dev/null
 

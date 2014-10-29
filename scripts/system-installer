@@ -6,7 +6,7 @@
 # License: GPLv2
 # Authors: Thibault Guittet <thibault.guittet@open.eurogiciel.org>
 #          Nicolas Zingilé <nicolas.zingile@open.eurogiciel.org>
-#          Stéphane Desneux <stephane.desneux@open.euurogiciel.org>
+#          Stéphane Desneux <stephane.desneux@open.eurogiciel.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -41,7 +41,7 @@ bmaptool_failure=""
 # util executables paths
 utilspath=/usr/lib/system-installer
 url_util=$utilspath/url-util
-wifi_util_util=$utilspath/wifi-util
+wifi_util=$utilspath/wifi-util
 kbd_util=$utilspath/keyboard-util
 disk_util=$utilspath/disk-util
 
@@ -88,11 +88,8 @@ function test_connection {
 	echo "Checking for internet connection, please wait"
     sleep 5
 	until curl --connect-timeout 10 -s "http://download.tizen.org/" > /dev/null; do
-		while :; do
-			$wifi_util && break
-			[ $? -eq 1 ] && sigint_handler
-		done
-		echo "Checking for internet connection, please wait"
+		$wifi_util && break
+		[ $? -eq 1 ] && sigint_handler
 	done
 }
 

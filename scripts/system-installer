@@ -106,8 +106,6 @@ function sigint_handler {
 	txt+="Press 'Yes' to reboot the device.\nPress 'No' to restart the installation."
 	$DIALOG --yesno "$txt" 15 70 && /usr/sbin/reboot -f
 	rm -f "$output_data_file" 2>/dev/null
-	rm -rf "$mountpoint" 2>/dev/null
-	[ -d "${OUTDEV}${partition}" ] && umount -l "${OUTDEV}${partition}" 2>/dev/null
 	exec /usr/sbin/system-installer
 }
 

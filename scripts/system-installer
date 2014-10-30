@@ -89,7 +89,10 @@ function test_connection {
     sleep 5
 	until curl --connect-timeout 10 -s "http://download.tizen.org/" > /dev/null; do
 		$wifi_util && break
-		[ $? -eq 1 ] && sigint_handler
+		if [ $? -eq 1 ]; then
+            $DIALOG --msgbox "No network connection available. Please check your network environment." 15 70
+             sigint_handler
+        fi
 	done
 }
 

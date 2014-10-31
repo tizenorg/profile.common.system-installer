@@ -11,7 +11,7 @@ outfile=${1:-/dev/stdout}
 mode=${2:-"basic"}
 
 BASE_URL="http://download.tizen.org/"
-IMAGE_URL+=$BASE_URL
+IMAGE_URL=
 DIALOG_RESULT=
 DIALOG=/usr/bin/dialog
 

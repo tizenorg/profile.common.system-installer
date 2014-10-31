@@ -32,31 +32,24 @@ export HOME="/root"
 # Used to retrieve output of the other scripts
 output_data_file="/tmp/system-installer.$$"
 
-# Configuration file of system-installer
-conf_file="/etc/system-installer.conf"
-
 # Used to signal a bmaptool failure during download/flash
 bmaptool_failure=""
 
-# util executables paths
+# Util executables paths
 utilspath=/usr/lib/system-installer
 url_util=$utilspath/url-util
 wifi_util=$utilspath/wifi-util
 kbd_util=$utilspath/keyboard-util
 disk_util=$utilspath/disk-util
+mode_util=$utilspath/mode-util
+
+# Variables for the user
+INSTALL_MODE=
+KEYBOARD_LAYOUT=
+IMAGE_URL=
+OUTDEV=
 
 . $utilspath/dialog-helper
-
-# Simply read the configuration in $conf_file, exit if not found
-function read_config {
-
-    if [ ! -e $conf_file ]; then
-        $DIALOG --msgbox "Installation failure, missing $conf_file" 24 70
-	    sigint_handler
-    else
-        . $conf_file
-    fi
-}
 
 # Download the raw image, decompress it and write it on the device
 # When the image is written, the partition size is modified
@@ -99,7 +92,7 @@ function test_connection {
 function sigint_handler {
 	local txt=""
 	if [ "$bmaptool_failure" = "yes" ]; then
-		txt+="Bmaptool failed to flash your device."
+		txt+="Bmaptool failed to flash your device.\n\n\n"
 	else
 		txt+="The installation was interrupted.\n\n\n"
 	fi
@@ -109,22 +102,28 @@ function sigint_handler {
 	exec /usr/sbin/system-installer
 }
 
+function select_mode {
+    while :; do
+        $mode_util "$output_data_file" && break
+        [ $? -eq 1 ] && sigint_handler
+    done
+    INSTALL_MODE=$(cat "$output_data_file")
+    rm -f "$output_data_file" 2>/dev/null
+}
+
 trap "sigint_handler" SIGINT
 
-read_config
+[ -z "$INSTALL_MODE" ] && select_mode
 
 [ -z "$KEYBOARD_LAYOUT" ] && select_keyboard_layout
 
 if [ -z "$IMAGE_URL" ]; then
 	test_connection
 	while :; do
-		$url_util "$output_data_file" && break
+		$url_util "$output_data_file" "$INSTALL_MODE" && break
 		[ $? -eq 1 ] && sigint_handler
 	done
 	IMAGE_URL=$(cat "$output_data_file")
-elif ! curl --fail -I "$IMAGE_URL" > /dev/null ; then
-	echo "The image url couldn't be reached, please verify that the url is correct."
-	exit 1
 fi
 
 if [ -z "$OUTDEV" ]; then

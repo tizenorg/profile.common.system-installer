@@ -8,6 +8,7 @@
 #!/bin/bash
 
 outfile=${1:-/dev/stdout}
+mode=${2:-"basic"}
 
 BASE_URL="http://download.tizen.org/"
 IMAGE_URL+=$BASE_URL
@@ -82,28 +83,47 @@ function do_sync() {
     [[ -n "$dialog_pid" ]] && kill $dialog_pid
 }
 
+
+function enter_url() {
+	$DIALOG --stderr --no-cancel --inputbox "Enter the entire url of the image :\n" 24 70 2>$tmpfile
+	IMAGE_URL=$(cat $tmpfile)
+	if ! curl --fail -s -I "$IMAGE_URL" > /dev/null ; then
+		echo "Bad image url !"
+		 $DIALOG --msgbox "The image url couldn't be reached, please verify that the url is correct." 15 70
+		exit 1
+	fi
+}
+
 #######################################################
 
-select_topdir || exit 1
-curdir=$DIALOG_RESULT
 
-touch sync.out
-$DIALOG --title "Fetching images locations" --tailbox sync.out 24 70 &
-do_sync $! >>sync.out
+if [ "$mode" = "custom" ]; then
+	IMAGE_URL+=$BASE_URL
 
-initial_dir=$curdir
-while [ 1 ]; do
-    select_image $curdir || exit 1
-    if [[ "$DIALOG_RESULT" == "${BACK_STRING}" ]]; then
-        curdir=$(dirname $curdir)
-    elif [[ -z "$DIALOG_RESULT" ]]; then
-        break
-    else
-        curdir="$curdir/$DIALOG_RESULT"
-    fi
-done
+	select_topdir || exit 1
 
-IMAGE_URL+=$(echo $curdir/*.raw.*)
+	curdir=$DIALOG_RESULT
+	touch sync.out
+	$DIALOG --title "Fetching images locations" --tailbox sync.out 24 70 &
+	do_sync $! >>sync.out
+
+	initial_dir=$curdir
+	while [ 1 ]; do
+		select_image $curdir || exit 1
+		if [[ "$DIALOG_RESULT" == "${BACK_STRING}" ]]; then
+			curdir=$(dirname $curdir)
+		elif [[ -z "$DIALOG_RESULT" ]]; then
+			break
+		else
+			curdir="$curdir/$DIALOG_RESULT"
+		fi
+	done
+
+	IMAGE_URL+=$(echo $curdir/*.raw.*)
+
+elif [ "$mode" = "basic" ]; then
+	enter_url
+fi
 
 popd &>/dev/null
 

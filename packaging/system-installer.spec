@@ -41,6 +41,7 @@ install -m 0775 scripts/disk-util  %{buildroot}/%{_prefix}/lib/%{name}/disk-util
 install -m 0775 scripts/url-util  %{buildroot}/%{_prefix}/lib/%{name}/url-util
 install -m 0775 scripts/wifi-util  %{buildroot}/%{_prefix}/lib/%{name}/wifi-util
 install -m 0775 scripts/keyboard-util  %{buildroot}/%{_prefix}/lib/%{name}/keyboard-util
+install -m 0775 scripts/mode-util  %{buildroot}/%{_prefix}/lib/%{name}/mode-util
 install -m 0775 scripts/system-installer  %{buildroot}/%{_sbindir}/system-installer
 install -m 0644 scripts/.dialogrc  %{buildroot}/root/.dialogrc
 ln -sf ../system-installer.service %{buildroot}/%{_unitdir}/default.target.wants/system-installer.service
@@ -59,4 +60,5 @@ ln -sf ../system-installer.service %{buildroot}/%{_unitdir}/default.target.wants
 %{_prefix}/lib/%{name}/url-util
 %{_prefix}/lib/%{name}/wifi-util
 %{_prefix}/lib/%{name}/keyboard-util
+%{_prefix}/lib/%{name}/mode-util
 /root/.dialogrc

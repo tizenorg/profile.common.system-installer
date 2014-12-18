@@ -23,11 +23,16 @@
 # Being connected to the internet before launching this script is
 # better. If you aren't connected, a wifi configuration script will be fired.
 
+
 echo -e "2\t2\t2\t2" > /proc/sys/kernel/printk
 
 chvt 2
 
 export HOME="/root"
+
+# disable journald log
+systemctl stop systemd-journald.service
+systemctl mask systemd-journald.service
 
 # Used to retrieve output of the other scripts
 output_data_file="/tmp/system-installer.$$"
@@ -141,7 +146,7 @@ rm -f "$output_data_file" 2>/dev/null
 
 # os install confirmation
 os_install_lost="Do you want to proceed with the installation ? All your data on the target device will be lost."
-$DIALOG --yesno "${os_install_lost}" 15 70 || sigint_handler
+$DIALOG --defaultno --yesno "${os_install_lost}" 15 70 || sigint_handler
 
 # Download and install the image"
 install_os

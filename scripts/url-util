@@ -8,7 +8,7 @@
 #!/bin/bash
 
 outfile=${1:-/dev/stdout}
-mode=${2:-"basic"}
+mode=${2:-"preset"}
 
 BASE_URL="http://download.tizen.org/"
 IMAGE_URL=
@@ -97,7 +97,7 @@ function enter_url() {
 #######################################################
 
 
-if [ "$mode" = "custom" ]; then
+if [ "$mode" = "preset" ]; then
 	IMAGE_URL+=$BASE_URL
 
 	select_topdir || exit 1
@@ -121,7 +121,7 @@ if [ "$mode" = "custom" ]; then
 
 	IMAGE_URL+=$(echo $curdir/*.raw.*)
 
-elif [ "$mode" = "basic" ]; then
+elif [ "$mode" = "url" ]; then
 	enter_url
 fi
 

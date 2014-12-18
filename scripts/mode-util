@@ -9,9 +9,9 @@ utilspath=/usr/lib/system-installer
 
 trap "exit 1" SIGINT
 
-dialog_helper --no-items --item-help --menu "Select your installation mode" 15 70 15 \
-"basic" "Put the whole url of the image that you want to install." \
-"custom" "Browse through the download.tizen.org directories and select the image that you want to install."
+dialog_helper --no-items --item-help --menu "Select your installation option" 15 70 15 \
+"preset" "Browse through the download.tizen.org directories and select the image that you want to install." \
+"url" "Put the whole url of the image that you want to install."
 
 cat << EOC > $outfile
 $(echo "$DIALOGRES")
